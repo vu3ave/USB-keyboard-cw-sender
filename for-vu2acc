@@ -1,0 +1,528 @@
+   
+#include <PS2Keyboard.h>
+// PS2 KEYBOARD
+const int DataPin = 8; // DATA out of ps2 keyboard
+const int IRQpin =  3; // for arduino nano //clock out of ps2 keyboard
+PS2Keyboard keyboard;
+
+
+// AUTOMATIC KEYER USING PADDLE AND USB/PS2 KEYBOARD
+int Maximum_speed_WPM=30;
+int Minimum_speed_WPM=3;
+int P_DOT =   2;   // Connects to the dot lever of the paddle
+int P_DASH =  4;   // Connects to the dash lever of the paddle 3 to 4
+int P_AUDIO = 7;   // Audio output
+// int P_AUDIO = 12;   // Audio output
+int P_CW  =  13;   // Output of the keyer, connect to your radio
+#define P_SPEED A0   // Attached to center pin of potmeter, allows you
+int speed;
+
+
+
+
+////////////////////////////// CW sender/////
+String mappings[] = {
+                     ".-",  // A
+                     "-...",
+                     "-.-.",  
+                     "-..",
+                     ".",  
+                     "..-.",
+                     "--.",  
+                     "....",
+                     "..",  
+                     ".---",
+                     "-.-",  
+                     ".-..",
+                     "--",  
+                     "-.",
+                     "---",  
+                     ".--.",
+                     "--.-",  
+                     ".-.",
+                     "...",  
+                     "-",                      
+                     "..-",  
+                     "...-",
+                     ".--",  
+                     "-..-",
+                     "-.--",  
+                     "--..", // Z
+                     ".----",  // 1
+                     "..---",
+                     "...--",  
+                     "....-",
+                     ".....",  
+                     "-....",
+                     "--...",  
+                     "---..",
+                     "----.",  
+                     "-----",   // 0
+                     "..--..",  // ?
+                     ".-.-.-",  // .
+                     "--..--",  // ,
+                     "-..-.",   // /
+                     "...-.-"  // @
+                     };
+
+
+String  morsecode;
+String message;
+const String  characters = "abcdefghijklmnopqrstuvwxyz1234567890?.,/";
+int sm_time;
+int time_step=100;  // initial timer
+int TIME_UNIT;
+String inputString = "";             // a String to hold incoming data
+bool stringComplete = false;  // whether the string is complete
+
+
+////////////////////////////
+
+
+
+
+
+
+
+
+int KEY_PIN=13; // relay drive to transimit cw in port
+
+
+
+
+
+
+// tone frequency for speaker
+int notes[] = {
+  1047, 1319, 1175, 1568
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void setup() {
+  delay(1000);
+  keyboard.begin(DataPin, IRQpin);
+  Serial.begin(9600);
+  Serial.println("Keyboard Test:");
+
+
+
+
+
+
+        pinMode(13, OUTPUT);  // connect a buzzer at pin 13 to listen cw
+        pinMode(9, OUTPUT);  // connect and LED in pin 9
+    
+  pinMode(6, OUTPUT);  // Local speaker or LED
+    
+        // reserve 200 bytes for the inputString:
+        inputString.reserve(200);
+
+
+  pinMode(P_DOT, INPUT);
+  pinMode(P_DASH, INPUT);
+  pinMode(P_AUDIO, OUTPUT);
+  digitalWrite(P_CW, LOW);          // Start with key up
+
+
+
+
+  // sound welcome tone
+  speeddown();
+  speedup();
+  // speeddown_mute();
+  speedup_mute();
+  
+ }
+
+
+void loop() {
+  
+//// LAMBIC KEYER START
+speed = 60000 / (map(analogRead(P_SPEED), 0, 1023, Maximum_speed_WPM, Minimum_speed_WPM) * 73);
+
+  // speed = 100;
+ if(!digitalRead(P_DOT))        // If the dot lever is presssed..
+     {
+    keyAndBeep(speed);           // ... send a dot at the given speed
+    delay(speed);                //     and wait before sending next
+     }
+
+  
+if(!digitalRead(P_DASH))       // If the dash lever is pressed...
+    {
+   keyAndBeep(speed*3);         // ... send a dash at the given speed
+   delay(speed);                //     and wait before sending next
+    }
+//// LAMBIC KEYER CLOSE
+
+
+
+
+  
+  // print the string when a newline arrives:
+  if (stringComplete)
+  {
+        Serial.println(inputString);
+    
+        message=inputString;
+        digitalWrite(9,HIGH);
+        delay(100);
+        int result= messagetocw();
+        digitalWrite(9,LOW);
+    
+        // clear the string:
+        inputString = "";
+        stringComplete = false;
+  }
+  // print the string when a newline arrives:
+
+
+  if (keyboard.available()) {
+    
+        // read the next key
+        char c = keyboard.read();
+    
+        // check for some of the special keys
+        if (c == PS2_ENTER) {
+          // Serial.println();
+          
+
+
+
+
+          
+        } else if (c == PS2_TAB) {
+          Serial.print("[Tab]");
+          message="vu2acc";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+          
+        } else if (c == PS2_ESC) {
+          // Serial.print("[ESC]");
+          message="hi";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+          
+        } else if (c == PS2_PAGEDOWN) {
+          //Serial.print("[PgDn]");
+          message="qrz?";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+          
+        } else if (c == PS2_PAGEUP) {
+          //Serial.print("[PgUp]");
+
+          message="cq cq cq de vu2acc vu2acc vu2acc pse k";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+
+
+          
+        } else if (c == PS2_LEFTARROW) {
+          Serial.print("[Left]");
+        } else if (c == PS2_RIGHTARROW) {
+          Serial.print("[Right]");
+        
+        
+        } else if (c == PS2_DELETE) {
+          // Serial.print("[Del/Backspace]");
+          message="de vu2acc tks fer qso 73 tu i";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+
+          
+        } else if (c == PS2_UPARROW) {
+          //Serial.print("[Up]- Speed UP");
+          speedup();
+          
+        } else if (c == PS2_DOWNARROW) {
+          //Serial.print("[Down]- Speed DOWN");
+          speeddown();
+          
+        } else if (c =='=') {
+          //Serial.print("CQ Call");
+          message="cq cq cq de vu2acc vu2acc vu2acc k";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+
+
+        } else if (c == '?') {
+          // Serial.print("qrz call");
+          message="qrz ? de vu2acc k";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+
+        } else if (c == '-') { 
+          message="de vu2acc tks fer qso 73 tu i";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+
+        } else if (c == '%') { 
+          message="hi";
+          digitalWrite(9,HIGH);
+          delay(100);
+          int result= messagetocw();
+          digitalWrite(9,LOW);
+
+
+
+
+
+
+        } else {
+          
+          // otherwise, just print all normal characters
+          Serial.print(c);
+
+
+///test
+        message=c;
+        digitalWrite(9,HIGH);
+        delay(100);
+        int result= messagetocw();
+        digitalWrite(9,LOW);
+
+
+///test
+
+
+
+
+
+
+
+
+          
+        }
+ 
+  }// 'if' is close
+
+
+ 
+}// LOOP() close
+
+
+////LAMBIC FUNCTIONS START
+
+
+// Key the transmitter and sound a beep
+void keyAndBeep(int speed)
+{
+  digitalWrite(P_CW, HIGH);            // Key down
+  for (int i=0; i < speed; i++)    // Beep loop
+  {
+   digitalWrite(P_AUDIO, HIGH);
+   delay(1);
+   digitalWrite(P_AUDIO, LOW);
+   delay(1);
+
+  }
+ 
+  digitalWrite(P_CW, LOW);             // Key up
+
+ }
+////LAMBIC FUNCTIONS CLOSE
+
+
+
+
+
+void speedup()
+{
+  time_step=time_step-10;
+
+
+        if(time_step<=10)
+  {
+            time_step=10;
+  }
+
+
+ 
+  for (int thisSensor = 0; thisSensor < 4; thisSensor++) {
+         tone(7, notes[thisSensor]);
+         delay(time_step);
+         noTone(7);
+  }
+ 
+}
+
+
+
+
+void speeddown()
+{
+  time_step=time_step+10;
+ 
+    
+  for (int thisSensor = 3; thisSensor >= 0; thisSensor--) {
+         tone(7, notes[thisSensor]);
+         delay(time_step);
+         noTone(7);
+  }
+}
+
+
+
+void  speedup_mute(){
+time_step=time_step-10;
+        if(time_step<=10)
+  {
+            time_step=10;
+  }
+  
+ }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int messagetocw()
+{  
+  // FUNCTION messagetocw() START
+ 
+  // int size = strlen(message);
+  int size = message.length();
+  int TIME_UNIT = 50; // default time for DIT
+  ///
+  if(TIME_UNIT==time_step)
+  {
+    
+  }
+  else
+  {
+        TIME_UNIT=time_step;
+  }
+  ///
+  if(TIME_UNIT<=10)
+  {
+        TIME_UNIT=10;
+        time_step=10;
+  }
+  ///
+  const int DOT = TIME_UNIT;
+  const int DASH = 3 * TIME_UNIT;
+  const int SYMBOL_SPACE = TIME_UNIT;
+  const int LETTER_SPACE = 3 * TIME_UNIT - SYMBOL_SPACE;
+  const int WORD_SPACE = 7 * TIME_UNIT - LETTER_SPACE;
+ 
+  message.toLowerCase();
+  for (int i = 0; i < size; i++) {
+    
+        // const char* ch = strchr(characters, tolower(message[i]));
+        char ch = characters.charAt(characters.indexOf(message.charAt(i)));//
+        // if (ch != NULL){
+   if (ch != '\0'){
+          
+          // int position = ch-characters;
+          int position = characters.indexOf(message.charAt(i));
+          
+          morsecode = mappings[position];
+          
+          // int count = strlen(morsecode);
+         int count = morsecode.length();
+          
+          
+          //Serial.print("symbol ");
+          //Serial.print(message[i]);
+          //Serial.print(" is in position ");
+          //Serial.print(position);
+          //Serial.print("\n");
+          //Serial.print(morsecode);
+          //Serial.print("\n---------------\n");
+          
+          
+          for( int j=0; j< count; j++)
+          {
+            
+            char symbol = morsecode[j];
+            
+            if(symbol =='.')
+            {
+              sm_time = DOT;
+            }
+            
+            if(symbol =='-')
+            {
+              sm_time = DASH;
+            }
+            digitalWrite(KEY_PIN, HIGH);
+            delay(sm_time);
+            digitalWrite(KEY_PIN, LOW);
+            delay(SYMBOL_SPACE);
+          }// for loop close2
+          
+          delay(LETTER_SPACE);
+          
+        }
+        delay(WORD_SPACE);
+    
+  }// for loop close1
+ 
+} // FUNCTION messagetocw() close
+
+
+
+
+
+
+
+
+
+
+/*
+  SerialEvent occurs whenever a new data comes in the hardware serial RX. This  routine is run between each time loop() runs, so using delay inside loop can  delay response. Multiple bytes of data may be available.
+*/
+void serialEvent()
+{
+  while (Serial.available()) {
+        // get the new byte:
+        char inChar = (char)Serial.read();
+        // add it to the inputString:
+        inputString += inChar;
+        // if the incoming character is a newline, set a flag so the main loop can
+        // do something about it:
+        if (inChar == '\n') {
+          stringComplete = true;
+        }
+  }
+}
